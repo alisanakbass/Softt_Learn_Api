@@ -49,8 +49,13 @@ export class AuthService {
       role: user.role,
     };
 
-    const token = jwt.sign(Payload, config.jwt.secret, {
-      expiresIn: config.jwt.expiresIn,
-    });
+    const signOptions: jwt.SignOptions = {
+      expiresIn: config.jwt.expiresIn as any,
+    };
+
+    const token = jwt.sign(Payload, config.jwt.secret, signOptions);
+
+    const { password, ...userWithOutPassword } = user;
+    return { user: userWithOutPassword, token };
   }
 }

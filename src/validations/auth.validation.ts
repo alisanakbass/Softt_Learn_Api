@@ -12,5 +12,5 @@ export const loginSchema = z.object({
   email: z
     .string()
     .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Gecerli email giriniz"),
-  passeord: z.string(),
+  password: z.string(),
 });
