@@ -21,3 +21,23 @@ enum Role {
   TEACHER
   ADMIN
 }
+
+model Category {
+  id          Int            @id @default(autoincrement())
+  name        String         @unique
+  description String?
+  slug        String         @unique
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  path        LearningPath[]
+}
+
+model LearningPath {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  categoryId  Int
+  category    Category @relation(fields: [categoryId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

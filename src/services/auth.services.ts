@@ -29,7 +29,6 @@ export class AuthService {
     const { password, ...userWithOutPassword } = user;
     return userWithOutPassword;
   }
-
   async login(data: LoginInput) {
     const user = await prisma.user.findUnique({
       where: { email: data.email },
