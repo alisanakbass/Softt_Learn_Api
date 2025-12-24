@@ -5,10 +5,10 @@ import { authorize } from "../middleware/auth.middleware.js";
 const router = Router();
 const categoryController = new CategoryController();
 
-router.get("/", authorize("STUDENT"), categoryController.getAll);
+router.get("/", categoryController.getAll);
 
 router.get("/:id", categoryController.getById);
 
-router.post("/", authorize("admin"), categoryController.create);
+router.post("/", categoryController.create);
 
 export default router;

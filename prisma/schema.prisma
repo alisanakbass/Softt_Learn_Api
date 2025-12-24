@@ -7,13 +7,14 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
+  id        Int            @id @default(autoincrement())
+  email     String         @unique
   password  String
   name      String
-  role      Role     @default(STUDENT)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  role      Role           @default(STUDENT)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  progress  UserProgress[]
 }
 
 enum Role {
@@ -32,12 +33,109 @@ model Category {
   path        LearningPath[]
 }
 
+enum Difficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
 model LearningPath {
-  id          Int      @id @default(autoincrement())
+  id          Int            @id @default(autoincrement())
   title       String
   description String?
+  order       Int            @default(0)
+  difficulty  Difficulty?
   categoryId  Int
-  category    Category @relation(fields: [categoryId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  category    Category       @relation(fields: [categoryId], references: [id])
+  nodes       Node[]
+  progress    UserProgress[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model Node {
+  id          Int          @id @default(autoincrement())
+  title       String
+  description String?
+  order       Int
+  pathId      Int
+  path        LearningPath @relation(fields: [pathId], references: [id], onDelete: Cascade)
+
+  // Self-referencing relation (ağaç yapısı)
+  parentId Int?
+  parent   Node?  @relation("NodeChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children Node[] @relation("NodeChildren")
+
+  contentId Int?     @unique
+  content   Content? @relation(fields: [contentId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([pathId])
+  @@index([parentId])
+}
+
+model Content {
+  id          Int         @id @default(autoincrement())
+  type        ContentType
+  title       String
+  description String?
+
+  // Video için
+  videoUrl String?
+  duration Int? // saniye cinsinden
+
+  // Article için
+  articleText String? @db.Text
+
+  // Quiz için
+  questions Question[]
+
+  node      Node?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ContentType {
+  VIDEO
+  ARTICLE
+  QUIZ
+  EXERCISE
+}
+
+model Question {
+  id        Int     @id @default(autoincrement())
+  contentId Int
+  content   Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  question      String
+  options       String[] // JSON array
+  correctAnswer Int // Doğru cevabın index'i
+  explanation   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([contentId])
+}
+
+model UserProgress {
+  id     Int  @id @default(autoincrement())
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  pathId Int
+  path   LearningPath @relation(fields: [pathId], references: [id], onDelete: Cascade)
+
+  completedNodes Int[] // Tamamlanan node ID'leri
+  currentNodeId  Int?
+
+  startedAt      DateTime  @default(now())
+  lastAccessedAt DateTime  @updatedAt
+  completedAt    DateTime?
+
+  @@unique([userId, pathId])
+  @@index([userId])
+  @@index([pathId])
 }

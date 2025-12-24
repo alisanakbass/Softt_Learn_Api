@@ -652,11 +652,12 @@ import { JWTPayload } from "../types/auth.types";
 
 // Request tipini genişlet
 declare global {
-  namespace Express {
-    interface Request {
-      user?: JWTPayload;
-    }
-  }
+    namespace Express {
+        interface Request {
+              user?: JWTPayload;
+                  }
+                    }
+                    }
 }
 
 export const authenticate = async (

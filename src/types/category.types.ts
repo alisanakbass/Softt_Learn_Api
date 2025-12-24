@@ -3,3 +3,8 @@ export interface CategoryCreate {
   descriptions: string;
   slug: string;
 }
+export interface CategoryUpdate {
+  name?: string;
+  descriptions?: string;
+  slug?: string;
+}

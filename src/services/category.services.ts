@@ -1,5 +1,8 @@
 import { prisma } from "../config/database.js";
-import type { CategoryCreate } from "../types/category.types.js";
+import type {
+  CategoryCreate,
+  CategoryUpdate,
+} from "../types/category.types.js";
 
 export class CategoryServices {
   async getAll() {
@@ -21,5 +24,16 @@ export class CategoryServices {
 
   async create(data: CategoryCreate) {
     return await prisma.category.create({ data });
+  }
+
+  async update(id: number, data: CategoryUpdate) {
+    return await prisma.category.update({
+      where: { id },
+      data,
+    });
+  }
+
+  async delete(id: number) {
+    return await prisma.category.delete({ where: { id } });
   }
 }
