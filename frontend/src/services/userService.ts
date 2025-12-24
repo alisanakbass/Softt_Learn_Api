@@ -51,4 +51,27 @@ export const userService = {
     const response = await api.delete(`/users/${userId}`);
     return response.data;
   },
+
+  getMe: async () => {
+    const response = await api.get<{ success: boolean; data: User }>(
+      "/users/me"
+    );
+    return response.data;
+  },
+
+  updateMe: async (data: { name?: string; email?: string }) => {
+    const response = await api.patch<{ success: boolean; data: User }>(
+      "/users/update-me",
+      data
+    );
+    return response.data;
+  },
+
+  updatePassword: async (password: string) => {
+    const response = await api.patch<{ success: boolean; message: string }>(
+      "/users/update-password",
+      { password }
+    );
+    return response.data;
+  },
 };

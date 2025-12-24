@@ -13,7 +13,7 @@ export interface UpdateProgressData {
 export class ProgressService {
   // Kullanıcının tüm ilerlemelerini getir
   async getUserProgress(userId: number) {
-    return await prisma.userProgress.findMany({
+    const progressList = await prisma.userProgress.findMany({
       where: { userId },
       include: {
         path: {
@@ -24,6 +24,22 @@ export class ProgressService {
         },
       },
       orderBy: { lastAccessedAt: "desc" },
+    });
+
+    return progressList.map((progress) => {
+      const totalNodes = progress.path.nodes.length;
+      const completedNodesCount = progress.completedNodes.length;
+      const progressPercentage =
+        totalNodes > 0
+          ? Math.round((completedNodesCount / totalNodes) * 100)
+          : 0;
+
+      return {
+        ...progress,
+        totalNodes,
+        completedNodesCount,
+        progressPercentage,
+      };
     });
   }
 
@@ -230,5 +246,17 @@ export class ProgressService {
       overallProgress:
         totalNodes > 0 ? Math.round((completedNodes / totalNodes) * 100) : 0,
     };
+  }
+
+  // İlerlemeyi tamamen sil (Eğitimi Bırak)
+  async abandonProgress(userId: number, pathId: number) {
+    return await prisma.userProgress.delete({
+      where: {
+        userId_pathId: {
+          userId,
+          pathId,
+        },
+      },
+    });
   }
 }

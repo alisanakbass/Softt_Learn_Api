@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { categoryService } from "../services/categoryService";
 import type { Category } from "../services/categoryService";
@@ -12,6 +12,8 @@ import {
   Draggable,
   type DropResult,
 } from "@hello-pangea/dnd";
+import toast from "react-hot-toast";
+import { PathCardSkeleton, CategorySkeleton } from "../components/Skeleton";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -55,7 +57,7 @@ export default function Home() {
   const handleSubmitPath = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title || !formData.categoryId) {
-      alert("Lütfen başlık ve kategori seçiniz.");
+      toast.error("Lütfen başlık ve kategori seçiniz.");
       return;
     }
 
@@ -64,6 +66,7 @@ export default function Home() {
       if (editingPath) {
         const response = await pathService.update(editingPath.id, formData);
         if (response.success) {
+          toast.success("Eğitim başarıyla güncellendi.");
           setShowModal(false);
           resetForm();
           loadData();
@@ -71,6 +74,7 @@ export default function Home() {
       } else {
         const response = await pathService.create(formData);
         if (response.success && response.data) {
+          toast.success("Eğitim başarıyla oluşturuldu.");
           setShowModal(false);
           resetForm();
           navigate(`/editor/path/${response.data.id}`);
@@ -78,7 +82,7 @@ export default function Home() {
       }
     } catch (error) {
       console.error("İşlem hatası:", error);
-      alert("Bir hata oluştu.");
+      toast.error("Bir hata oluştu.");
     } finally {
       setLoading(false);
     }
@@ -104,11 +108,12 @@ export default function Home() {
     try {
       setLoading(true);
       await pathService.delete(deletePathId);
+      toast.success("Eğitim başarıyla silindi.");
       setDeletePathId(null);
       loadData();
     } catch (error) {
       console.error("Silme hatası:", error);
-      alert(
+      toast.error(
         "Bu eğitim silinemiyor. Muhtemelen içinde dersler veya öğrenci ilerlemeleri kayıtlı. Lütfen önce içeriği temizlemeyi deneyin."
       );
     } finally {
@@ -116,28 +121,25 @@ export default function Home() {
     }
   };
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigate("/login");
-      return;
-    }
-    // Reordering modunda pagination'ı devre dışı bırakıp hepsini çekebiliriz veya sadece mevcut sayfayı sıralatabiliriz.
-    // Şimdilik mevcut sayfayı sıralamaya izin verelim.
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCategory, page, isAuthenticated, navigate]);
+  /* Search & Filter State */
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [difficultyFilter, setDifficultyFilter] = useState<
+    string | undefined
+  >();
 
-  // Kategori değişince sayfayı 1'e çek
-  useEffect(() => {
-    setPage(1);
-  }, [selectedCategory]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [categoriesRes, pathsRes] = await Promise.all([
         categoryService.getAll(),
-        pathService.getAll(selectedCategory, page, isReordering ? 100 : 9), // Reorder modunda limit artır
+        pathService.getAll(
+          selectedCategory,
+          difficultyFilter,
+          debouncedSearch,
+          page,
+          isReordering ? 100 : 9
+        ),
       ]);
 
       if (categoriesRes.success) setCategories(categoriesRes.data);
@@ -152,13 +154,28 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedCategory, difficultyFilter, debouncedSearch, page, isReordering]);
+
+  // Arama için debounce efekti
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const trimmedQuery = searchQuery.trim();
+      if (trimmedQuery.length >= 3 || trimmedQuery.length === 0) {
+        setDebouncedSearch(trimmedQuery);
+        setPage(1);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Tüm veri yükleme tetikleyicilerini tek noktada birleştir
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   // Reorder Modu Aç/Kapa
   const toggleReorderMode = () => {
     setIsReordering(!isReordering);
-    // Mod değiştiğinde veriyi tazelemek iyi olabilir, özellikle limit değiştiği için
-    setTimeout(() => loadData(), 0);
   };
 
   const handleDragEnd = async (result: DropResult) => {
@@ -178,8 +195,10 @@ export default function Home() {
 
     try {
       await pathService.reorder(updates);
+      toast.success("Sıralama güncellendi.");
     } catch (error) {
       console.error("Sıralama hatası:", error);
+      toast.error("Sıralama kaydedilemedi.");
       loadData(); // Hata varsa geri al
     }
   };
@@ -215,41 +234,35 @@ export default function Home() {
     setPaths(sorted);
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-xl">Yükleniyor...</div>
-      </div>
-    );
-  }
+  if (!isAuthenticated) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 relative selection:bg-indigo-100 selection:text-indigo-700">
+    <div className="min-h-screen bg-slate-900 transition-colors duration-300 relative selection:bg-indigo-600 selection:text-white">
       {/* Dynamic Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-100 rounded-full blur-3xl opacity-30 translate-x-1/3 -translate-y-1/3" />
-        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-sky-100 rounded-full blur-3xl opacity-30 -translate-x-1/3 translate-y-1/3" />
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-600/10 rounded-full blur-3xl translate-x-1/3 -translate-y-1/3" />
+        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-3xl -translate-x-1/3 translate-y-1/3" />
       </div>
 
       {/* Path Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all duration-300">
-          <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl border border-gray-100 transform transition-all scale-100">
-            <h2 className="text-2xl font-bold mb-6 text-gray-900 flex items-center gap-2">
-              <span className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+        <div className="modal-overlay">
+          <div className="modal-content w-full max-w-md p-8">
+            <h2 className="text-2xl font-bold mb-6 text-slate-100 flex items-center gap-2">
+              <span className="p-2 bg-indigo-900/50 rounded-lg text-indigo-400">
                 {editingPath ? "✏️" : "✨"}
               </span>
               {editingPath ? "Eğitimi Düzenle" : "Yeni Eğitim Ekle"}
             </h2>
             <form onSubmit={handleSubmitPath} className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-slate-300 mb-1">
                   Başlık
                 </label>
                 <input
                   type="text"
                   required
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none"
+                  className="input"
                   value={formData.title}
                   onChange={(e) =>
                     setFormData({ ...formData, title: e.target.value })
@@ -265,7 +278,7 @@ export default function Home() {
                 <div className="relative">
                   <select
                     required
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none appearance-none bg-white"
+                    className="input appearance-none"
                     value={formData.categoryId}
                     onChange={(e) =>
                       setFormData({
@@ -293,7 +306,7 @@ export default function Home() {
                 </label>
                 <div className="relative">
                   <select
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none appearance-none bg-white"
+                    className="input appearance-none"
                     value={formData.difficulty}
                     onChange={(e) =>
                       setFormData({
@@ -320,7 +333,7 @@ export default function Home() {
                   Açıklama (İsteğe bağlı)
                 </label>
                 <textarea
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none"
+                  className="input"
                   rows={3}
                   value={formData.description}
                   onChange={(e) =>
@@ -340,13 +353,13 @@ export default function Home() {
                     setShowModal(false);
                     resetForm();
                   }}
-                  className="flex-1 px-4 py-2.5 text-gray-600 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 font-medium transition-colors"
+                  className="btn-secondary flex-1"
                 >
                   İptal
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2.5 text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 font-medium transition-all transform active:scale-95"
+                  className="flex-1 px-4 py-2.5 text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-none font-medium transition-all transform active:scale-95"
                 >
                   {editingPath ? "Güncelle" : "Oluştur"}
                 </button>
@@ -357,7 +370,7 @@ export default function Home() {
       )}
 
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-xl border-b border-indigo-50/50 sticky top-0 z-30 shadow-sm transition-all duration-300">
+      <header className="nav-header">
         <div className="container mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
             {/* Brand */}
@@ -368,7 +381,7 @@ export default function Home() {
               <div className="w-10 h-10 bg-gradient-to-tr from-indigo-600 to-violet-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200 group-hover:shadow-indigo-300 transition-all duration-300 transform group-hover:rotate-3">
                 <span className="text-xl font-bold">S</span>
               </div>
-              <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-700">
+              <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-100 to-slate-300">
                 SoftLearn
               </span>
             </div>
@@ -376,20 +389,23 @@ export default function Home() {
             <nav className="flex items-center gap-4">
               {isAuthenticated ? (
                 <>
-                  <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-gray-50/50 rounded-full border border-gray-100">
-                    <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold border border-indigo-200">
+                  <div
+                    onClick={() => navigate("/profile")}
+                    className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-full border border-slate-700 hover:bg-slate-700 hover:border-indigo-600 cursor-pointer transition-all group/user"
+                  >
+                    <div className="w-8 h-8 bg-indigo-900/50 rounded-full flex items-center justify-center text-indigo-300 font-bold border border-indigo-700 group-hover/user:bg-indigo-600 group-hover/user:text-white transition-all">
                       {user?.name?.charAt(0).toUpperCase()}
                     </div>
-                    <span className="text-sm font-medium text-gray-600 pr-2">
+                    <span className="text-sm font-medium text-slate-300 pr-2 group-hover/user:text-indigo-400 transition-colors">
                       {user?.name}
                     </span>
                   </div>
 
-                  <div className="h-8 w-px bg-gray-200 mx-1 hidden md:block"></div>
+                  <div className="h-8 w-px bg-slate-700 mx-1 hidden md:block"></div>
 
                   <Link
                     to="/dashboard"
-                    className="hidden md:flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50/50 rounded-xl transition-all duration-200 font-medium"
+                    className="hidden md:flex items-center gap-2 px-4 py-2 text-slate-300 hover:text-indigo-400 hover:bg-slate-800 rounded-xl transition-all duration-200 font-medium"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -411,7 +427,7 @@ export default function Home() {
 
                   <button
                     onClick={handleLogout}
-                    className="flex items-center gap-2 px-4 py-2 text-red-500 hover:bg-red-50 rounded-xl transition-all duration-200 font-medium"
+                    className="flex items-center gap-2 px-4 py-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all duration-200 font-medium"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -454,66 +470,78 @@ export default function Home() {
       <main className="container mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8">
         {/* Sidebar: Kategoriler */}
         <aside className="w-full lg:w-72 flex-shrink-0 space-y-6">
-          <div className="bg-white/80 backdrop-blur-md p-6 rounded-2xl shadow-sm border border-indigo-50 sticky top-24">
-            <h2 className="text-xl font-bold mb-4 text-gray-800 flex items-center gap-2">
+          <div className="card sticky top-24">
+            <h2 className="text-xl font-bold mb-4 text-slate-100 flex items-center gap-2">
               <span className="p-1.5 bg-indigo-100 rounded-lg text-indigo-600">
                 📚
               </span>
               Kategoriler
             </h2>
             <div className="flex flex-col gap-2">
-              <button
-                onClick={() => setSelectedCategory(undefined)}
-                className={`w-full text-left px-4 py-3 rounded-xl font-medium transition-all duration-200 flex items-center justify-between group ${
-                  selectedCategory === undefined
-                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200"
-                    : "bg-transparent text-gray-600 hover:bg-indigo-50 hover:text-indigo-600"
-                }`}
-              >
-                <span>Tümü</span>
-                {selectedCategory === undefined && (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+              {loading && categories.length === 0 ? (
+                <CategorySkeleton />
+              ) : (
+                <>
+                  <button
+                    onClick={() => {
+                      setSelectedCategory(undefined);
+                      setPage(1);
+                    }}
+                    className={`w-full text-left px-4 py-3 rounded-xl font-medium transition-all duration-200 flex items-center justify-between group ${
+                      selectedCategory === undefined
+                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/50"
+                        : "bg-transparent text-slate-300 hover:bg-slate-800 hover:text-white"
+                    }`}
                   >
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                )}
-              </button>
+                    <span>Tümü</span>
+                    {selectedCategory === undefined && (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
+                    )}
+                  </button>
 
-              {categories.map((category) => (
-                <button
-                  key={category.id}
-                  onClick={() => setSelectedCategory(category.id)}
-                  className={`w-full text-left px-4 py-3 rounded-xl font-medium transition-all duration-200 flex items-center justify-between group ${
-                    selectedCategory === category.id
-                      ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200"
-                      : "bg-transparent text-gray-600 hover:bg-indigo-50 hover:text-indigo-600"
-                  }`}
-                >
-                  <span>{category.name}</span>
-                  {selectedCategory === category.id && (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                  {categories.map((category) => (
+                    <button
+                      key={category.id}
+                      onClick={() => {
+                        setSelectedCategory(category.id);
+                        setPage(1);
+                      }}
+                      className={`w-full text-left px-4 py-3 rounded-xl font-medium transition-all duration-200 flex items-center justify-between group ${
+                        selectedCategory === category.id
+                          ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/50"
+                          : "bg-transparent text-slate-300 hover:bg-slate-800 hover:text-white"
+                      }`}
                     >
-                      <polyline points="9 18 15 12 9 6" />
-                    </svg>
-                  )}
-                </button>
-              ))}
+                      <span>{category.name}</span>
+                      {selectedCategory === category.id && (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-5 w-5"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </>
+              )}
             </div>
           </div>
         </aside>
@@ -521,11 +549,67 @@ export default function Home() {
         {/* Main Content: Learning Paths */}
         <div className="flex-1">
           <section>
+            <div className="flex flex-col md:flex-row gap-4 mb-8">
+              <div className="flex-1 relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Eğitimlerde ara..."
+                  className="input pl-11"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+
+              <div className="w-full md:w-48 relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 text-gray-400 group-focus-within:text-indigo-500 transition-colors"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                  </svg>
+                </div>
+                <select
+                  className="input pl-11 appearance-none"
+                  value={difficultyFilter || ""}
+                  onChange={(e) => {
+                    setDifficultyFilter(e.target.value || undefined);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">Tüm Seviyeler</option>
+                  <option value="BEGINNER">Başlangıç</option>
+                  <option value="INTERMEDIATE">Orta Seviye</option>
+                  <option value="ADVANCED">İleri Seviye</option>
+                </select>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                  ▼
+                </div>
+              </div>
+            </div>
+
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">
+              <h2 className="text-2xl font-bold text-slate-100">
                 🚀 Eğitimler
                 {selectedCategory && (
-                  <span className="text-lg font-normal text-gray-600 ml-2">
+                  <span className="text-lg font-normal text-slate-400 ml-2">
                     ({categories.find((c) => c.id === selectedCategory)?.name})
                   </span>
                 )}
@@ -598,13 +682,30 @@ export default function Home() {
               </div>
             </div>
 
-            {paths.length === 0 ? (
-              <div className="bg-white rounded-xl p-12 text-center shadow-md">
-                <p className="text-gray-500 text-lg">
-                  {selectedCategory
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <PathCardSkeleton key={i} />
+                ))}
+              </div>
+            ) : paths.length === 0 ? (
+              <div className="card text-center">
+                <div className="text-4xl mb-4">🔍</div>
+                <p className="text-slate-400 text-lg mb-4">
+                  {searchQuery
+                    ? `"${searchQuery}" araması için sonuç bulunamadı.`
+                    : selectedCategory
                     ? "Bu kategoride henüz eğitim bulunmuyor."
                     : "Henüz eğitim bulunmuyor."}
                 </p>
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="text-indigo-600 font-medium hover:underline"
+                  >
+                    Aramayı Temizle
+                  </button>
+                )}
               </div>
             ) : (
               <>
@@ -654,10 +755,10 @@ export default function Home() {
                       <Link
                         key={path.id}
                         to={`/path/${path.id}`}
-                        className="bg-white rounded-xl p-6 shadow-md hover:shadow-xl transition transform hover:-translate-y-1 block group"
+                        className="card hover:shadow-xl transition transform hover:-translate-y-1 block group border border-slate-700"
                       >
                         <div className="flex justify-between items-start mb-3">
-                          <h3 className="text-xl font-bold text-gray-800 group-hover:text-indigo-600 transition">
+                          <h3 className="text-xl font-bold text-slate-100 group-hover:text-indigo-400 transition">
                             {path.title}
                           </h3>
                           {path.difficulty && (
@@ -672,14 +773,14 @@ export default function Home() {
                         </div>
 
                         {path.description && (
-                          <p className="text-gray-600 mb-4 line-clamp-3">
+                          <p className="text-slate-400 mb-4 line-clamp-3">
                             {path.description}
                           </p>
                         )}
 
                         {path.category && (
-                          <div className="flex items-center text-sm text-gray-500 mb-4">
-                            <span className="bg-gray-100 px-3 py-1 rounded-full">
+                          <div className="flex items-center text-sm text-slate-400 mb-4">
+                            <span className="bg-gray-100 px-3 py-1 rounded-full border border-gray-100">
                               📁 {path.category.name}
                             </span>
                           </div>
@@ -815,9 +916,9 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white mt-16 py-8 border-t">
-        <div className="container mx-auto px-4 text-center text-gray-600">
-          <p>© 2025 SoftLearn. Tüm hakları saklıdır.</p>
+      <footer className="bg-slate-800 mt-16 py-8 border-t border-slate-700 transition-colors">
+        <div className="container mx-auto px-4 text-center text-slate-400">
+          <p>© 2024 SoftLearn. Tüm hakları saklıdır.</p>
         </div>
       </footer>
 
@@ -839,12 +940,12 @@ export default function Home() {
               &#8203;
             </span>
 
-            <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-gray-100">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <div className="inline-block align-bottom modal-content text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
-                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-900/30 sm:mx-0 sm:h-10 sm:w-10">
                     <svg
-                      className="h-6 w-6 text-red-600"
+                      className="h-6 w-6 text-red-400"
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
                       viewBox="0 0 24 24"
@@ -859,11 +960,11 @@ export default function Home() {
                     </svg>
                   </div>
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                    <h3 className="text-lg leading-6 font-bold text-gray-900">
+                    <h3 className="text-lg leading-6 font-bold text-slate-100">
                       Eğitimi Sil
                     </h3>
                     <div className="mt-2">
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-slate-400">
                         Bu eğitimi silmek istediğinize emin misiniz? Bu işlem
                         geri alınamaz ve eğitime ait tüm içerikler (dersler,
                         videolar, quizi'ler) ve öğrenci ilerlemeleri de
@@ -873,18 +974,18 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-2">
+              <div className="bg-slate-700/50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-2 border-t border-slate-700">
                 <button
                   type="button"
                   onClick={confirmDeletePath}
-                  className="w-full inline-flex justify-center rounded-xl border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm shadow-red-200 transition-all duration-200"
+                  className="btn-danger w-full sm:w-auto"
                 >
                   Evet, Sil
                 </button>
                 <button
                   type="button"
                   onClick={() => setDeletePathId(null)}
-                  className="mt-3 w-full inline-flex justify-center rounded-xl border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm transition-all duration-200"
+                  className="btn-secondary mt-3 sm:mt-0 w-full sm:w-auto"
                 >
                   İptal
                 </button>

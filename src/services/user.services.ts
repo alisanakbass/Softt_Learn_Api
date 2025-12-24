@@ -3,6 +3,19 @@ import { Role } from "@prisma/client";
 import bcrypt from "bcrypt";
 
 export class UserService {
+  async getById(id: number) {
+    return await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        createdAt: true,
+      },
+    });
+  }
+
   async getAll(page: number = 1, limit: number = 10) {
     const skip = (page - 1) * limit;
     const [users, total] = await prisma.$transaction([

@@ -24,12 +24,26 @@ export interface CreatePathData {
 
 export const pathService = {
   // Tüm learning path'leri getir (opsiyonel kategori filtresi)
-  getAll: async (categoryId?: number, page: number = 1, limit: number = 9) => {
-    const params: { page: number; limit: number; categoryId?: number } = {
+  getAll: async (
+    categoryId?: number,
+    difficulty?: string,
+    search?: string,
+    page: number = 1,
+    limit: number = 9
+  ) => {
+    const params: {
+      page: number;
+      limit: number;
+      categoryId?: number;
+      difficulty?: string;
+      search?: string;
+    } = {
       page,
       limit,
     };
     if (categoryId) params.categoryId = categoryId;
+    if (difficulty) params.difficulty = difficulty;
+    if (search) params.search = search;
 
     const response = await api.get<{
       success: boolean;

@@ -2,26 +2,40 @@ import { prisma } from "../config/database.js";
 import { type pathCreate, type pathUpdate } from "../types/path.type.js";
 
 export class PathServices {
-  async getAll(categoryId?: number, page: number = 1, limit: number = 10) {
+  async getAll(
+    categoryId?: number,
+    difficulty?: string,
+    search?: string,
+    page: number = 1,
+    limit: number = 10
+  ) {
     const skip = (page - 1) * limit;
+
+    const where: any = {
+      ...(categoryId !== undefined && categoryId !== 0 && { categoryId }),
+      ...(difficulty && { difficulty }),
+      ...(search && {
+        OR: [
+          { title: { contains: search, mode: "insensitive" } },
+          { description: { contains: search, mode: "insensitive" } },
+        ],
+      }),
+    };
 
     const [data, total] = await prisma.$transaction([
       prisma.learningPath.findMany({
-        where: {
-          ...(categoryId !== undefined && { categoryId }),
-        },
+        where,
         include: {
           category: true,
+          _count: {
+            select: { nodes: true },
+          },
         },
         orderBy: [{ order: "asc" }, { createdAt: "desc" }],
         skip,
         take: limit,
       }),
-      prisma.learningPath.count({
-        where: {
-          ...(categoryId !== undefined && { categoryId }),
-        },
-      }),
+      prisma.learningPath.count({ where }),
     ]);
 
     return {

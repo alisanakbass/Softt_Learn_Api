@@ -77,4 +77,12 @@ export const progressService = {
     );
     return response.data;
   },
+
+  // İlerlemeyi tamamen sil (Eğitimi Bırak)
+  abandonProgress: async (pathId: number) => {
+    const response = await api.delete<{ success: boolean; message: string }>(
+      `/progress/${pathId}`
+    );
+    return response.data;
+  },
 };

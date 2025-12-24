@@ -26,4 +26,7 @@ router.post("/:pathId/complete", progressController.completeNode);
 // İlerlemeyi sıfırla
 router.post("/:pathId/reset", progressController.resetProgress);
 
+// İlerlemeyi tamamen sil (Eğitimi Bırak)
+router.delete("/:pathId", progressController.abandonProgress);
+
 export default router;

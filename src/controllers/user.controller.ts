@@ -5,6 +5,15 @@ import { Role } from "@prisma/client";
 const userService = new UserService();
 
 export class UserController {
+  async getMe(req: Request, res: Response) {
+    try {
+      const user = await userService.getById(req.user!.userId);
+      res.status(200).json({ success: true, data: user });
+    } catch (error: any) {
+      res.status(404).json({ success: false, message: "Kullanıcı bulunamadı" });
+    }
+  }
+
   async getAll(req: Request, res: Response) {
     try {
       const page = parseInt(req.query.page as string) || 1;
@@ -85,6 +94,37 @@ export class UserController {
         success: false,
         message: error.message || "Silme işlemi sırasında sunucu hatası",
       });
+    }
+  }
+
+  async updateMe(req: Request, res: Response) {
+    try {
+      const userId = req.user!.userId;
+      const { name, email } = req.body;
+      const user = await userService.update(userId, { name, email });
+      res.status(200).json({ success: true, data: user });
+    } catch (error: any) {
+      res.status(400).json({ success: false, message: error.message });
+    }
+  }
+
+  async updatePassword(req: Request, res: Response) {
+    try {
+      const userId = req.user!.userId;
+      const { password } = req.body;
+      if (!password || password.length < 6) {
+        res.status(400).json({
+          success: false,
+          message: "Şifre en az 6 karakter olmalıdır",
+        });
+        return;
+      }
+      await userService.update(userId, { password });
+      res
+        .status(200)
+        .json({ success: true, message: "Şifre başarıyla güncellendi" });
+    } catch (error: any) {
+      res.status(400).json({ success: false, message: error.message });
     }
   }
 }

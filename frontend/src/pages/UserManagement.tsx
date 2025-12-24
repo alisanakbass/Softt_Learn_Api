@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { userService, type User } from "../services/userService";
 import { useAuthStore } from "../store/authStore";
 import { AxiosError } from "axios";
+import toast from "react-hot-toast";
 
 interface UserFormData extends Partial<User> {
   password?: string;
@@ -10,7 +11,7 @@ interface UserFormData extends Partial<User> {
 
 export default function UserManagement() {
   const navigate = useNavigate();
-  const { isAuthenticated, user, logout } = useAuthStore();
+  const { logout } = useAuthStore();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,6 +24,10 @@ export default function UserManagement() {
   const [selectedUser, setSelectedUser] = useState<UserFormData>({});
   const [modalLoading, setModalLoading] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [roleChangePending, setRoleChangePending] = useState<{
+    userId: number;
+    newRole: string;
+  } | null>(null);
 
   // Load data function
   const loadData = useCallback(async () => {
@@ -39,24 +44,17 @@ export default function UserManagement() {
     }
   }, [page]);
 
-  // Check auth and role
   useEffect(() => {
-    if (!isAuthenticated) {
-      navigate("/login");
-      return;
-    }
-    if (user?.role !== "ADMIN") {
-      navigate("/dashboard");
-      return;
-    }
     loadData();
-  }, [isAuthenticated, user, navigate, loadData]);
+  }, [loadData]);
 
-  const handleRoleChange = async (userId: number, newRole: string) => {
-    if (
-      !window.confirm("Kullanıcı rolünü değiştirmek istediğinize emin misiniz?")
-    )
-      return;
+  const handleRoleChange = (userId: number, newRole: string) => {
+    setRoleChangePending({ userId, newRole });
+  };
+
+  const confirmRoleChange = async () => {
+    if (!roleChangePending) return;
+    const { userId, newRole } = roleChangePending;
     try {
       await userService.updateRole(userId, newRole);
       setUsers((prev) =>
@@ -64,9 +62,11 @@ export default function UserManagement() {
           u.id === userId ? { ...u, role: newRole as User["role"] } : u
         )
       );
+      setRoleChangePending(null);
+      toast.success("Kullanıcı rolü başarıyla güncellendi.");
     } catch (err) {
       console.error(err);
-      alert("Rol güncellenirken hata oluştu");
+      toast.error("Rol güncellenirken hata oluştu");
     }
   };
 
@@ -80,13 +80,14 @@ export default function UserManagement() {
       await userService.delete(deleteId);
       setUsers((prev) => prev.filter((u) => u.id !== deleteId));
       setDeleteId(null);
+      toast.success("Kullanıcı başarıyla silindi.");
     } catch (err: unknown) {
       console.error(err);
       let errorMessage = "Kullanıcı silinirken hata oluştu";
       if (err instanceof AxiosError) {
         errorMessage = err.response?.data?.message || errorMessage;
       }
-      alert(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
@@ -108,6 +109,7 @@ export default function UserManagement() {
     try {
       if (modalMode === "create") {
         await userService.create(selectedUser);
+        toast.success("Yeni kullanıcı başarıyla eklendi.");
       } else {
         const dataToUpdate = { ...selectedUser };
         // Clean up empty password for edit mode
@@ -115,6 +117,7 @@ export default function UserManagement() {
           delete dataToUpdate.password;
         }
         await userService.update(selectedUser.id!, dataToUpdate);
+        toast.success("Kullanıcı başarıyla güncellendi.");
       }
       setIsModalOpen(false);
       loadData();
@@ -124,7 +127,7 @@ export default function UserManagement() {
       if (err instanceof AxiosError) {
         errorMessage = err.response?.data?.message || errorMessage;
       }
-      alert(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setModalLoading(false);
     }
@@ -144,14 +147,14 @@ export default function UserManagement() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 relative selection:bg-indigo-100 selection:text-indigo-700">
+    <div className="min-h-screen bg-slate-900 relative selection:bg-indigo-600 selection:text-white">
       {/* Dynamic Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-24 -right-24 w-96 h-96 bg-indigo-100 rounded-full blur-3xl opacity-50" />
-        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-purple-100 rounded-full blur-3xl opacity-50" />
+        <div className="absolute -top-24 -right-24 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl" />
       </div>
 
-      <header className="bg-white/80 backdrop-blur-xl border-b border-indigo-50/50 sticky top-0 z-30 shadow-sm transition-all duration-300">
+      <header className="nav-header">
         <div className="container mx-auto px-6 py-4">
           <div className="flex flex-col lg:flex-row justify-between items-center gap-4">
             {/* Brand Section */}
@@ -177,22 +180,24 @@ export default function UserManagement() {
                 </div>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 tracking-tight group-hover:text-indigo-700 transition-colors">
+                <h1 className="text-2xl font-bold text-slate-100 tracking-tight group-hover:text-indigo-400 transition-colors">
                   Kullanıcı Yönetimi
                 </h1>
-                <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wider">
+                <p
+                  onClick={() => navigate("/profile")}
+                  className="text-xs font-bold text-indigo-500 uppercase tracking-wider hover:text-indigo-700 cursor-pointer transition-colors"
+                >
                   Yetkilendirme Paneli
                 </p>
               </div>
             </div>
 
-            {/* Navigation & Actions */}
-            <nav className="flex items-center gap-3 p-1.5 bg-white/50 rounded-2xl border border-gray-100/50 shadow-sm backdrop-blur-md">
+            <nav className="flex items-center gap-3 p-1.5 bg-slate-800/50 rounded-2xl border border-slate-700 shadow-sm backdrop-blur-md">
               <button
                 onClick={() => navigate("/")}
-                className="flex items-center gap-2 px-4 py-2.5 text-gray-600 hover:text-indigo-600 hover:bg-white rounded-xl transition-all duration-200 font-medium group"
+                className="flex items-center gap-2 px-4 py-2.5 text-slate-300 hover:text-indigo-400 hover:bg-slate-800 rounded-xl transition-all duration-200 font-medium group"
               >
-                <span className="p-1 rounded-lg bg-gray-100 text-gray-500 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                <span className="p-1 rounded-lg bg-slate-700 text-slate-400 group-hover:bg-indigo-900/50 group-hover:text-indigo-400 transition-colors">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     className="h-4 w-4"
@@ -212,9 +217,9 @@ export default function UserManagement() {
 
               <button
                 onClick={() => navigate("/dashboard")}
-                className="flex items-center gap-2 px-4 py-2.5 text-gray-600 hover:text-indigo-600 hover:bg-white rounded-xl transition-all duration-200 font-medium group"
+                className="flex items-center gap-2 px-4 py-2.5 text-slate-300 hover:text-indigo-400 hover:bg-slate-800 rounded-xl transition-all duration-200 font-medium group"
               >
-                <span className="p-1 rounded-lg bg-gray-100 text-gray-500 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                <span className="p-1 rounded-lg bg-slate-700 text-slate-400 group-hover:bg-indigo-900/50 group-hover:text-indigo-400 transition-colors">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     className="h-4 w-4"
@@ -234,33 +239,9 @@ export default function UserManagement() {
                 <span className="hidden sm:inline">Dashboard</span>
               </button>
 
-              <div className="w-px h-6 bg-gray-200 mx-1"></div>
-
-              <button
-                onClick={openCreateModal}
-                className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-200 active:scale-95 transition-all duration-200 font-semibold shadow-md shadow-indigo-100"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                  <circle cx="8.5" cy="7" r="4" />
-                  <line x1="20" y1="8" x2="20" y2="14" />
-                  <line x1="23" y1="11" x2="17" y2="11" />
-                </svg>
-                <span>Yeni Kullanıcı</span>
-              </button>
-
               <button
                 onClick={handleLogout}
-                className="ml-1 p-2.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200"
+                className="ml-1 p-2.5 text-red-400 hover:text-red-300 hover:bg-red-900/30 rounded-xl transition-all duration-200"
                 title="Çıkış Yap"
               >
                 <svg
@@ -290,104 +271,165 @@ export default function UserManagement() {
           </div>
         )}
 
-        <div className="bg-white rounded-xl shadow-md overflow-hidden">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+          <div>
+            <h2 className="text-lg font-bold text-slate-100">
+              Tüm Kullanıcılar
+            </h2>
+            <p className="text-sm text-slate-400">
+              Sistemdeki tüm kayıtlı kullanıcıları buradan yönetebilirsiniz.
+            </p>
+          </div>
+          <button
+            onClick={openCreateModal}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-200 active:scale-95 transition-all duration-200 font-semibold shadow-md shadow-indigo-100"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="8.5" cy="7" r="4" />
+              <line x1="20" y1="8" x2="20" y2="14" />
+              <line x1="23" y1="11" x2="17" y2="11" />
+            </svg>
+            <span>Yeni Kullanıcı Ekle</span>
+          </button>
+        </div>
+
+        <div className="card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-slate-700">
+              <thead className="bg-slate-800/50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
                     ID
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
                     İsim
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
                     Email
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
                     Rol
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
                     İşlemler
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      #{u.id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
-                      {u.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-500">
-                      {u.email}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <select
-                        value={u.role}
-                        onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                        className={`block w-full py-1 px-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm
+              <tbody className="divide-y divide-slate-700">
+                {loading && users.length === 0
+                  ? Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={i} className="animate-pulse">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="h-4 bg-gray-200 rounded w-8"></div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="h-4 bg-gray-200 rounded w-24"></div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="h-4 bg-gray-200 rounded w-48"></div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="h-8 bg-gray-100 rounded w-20"></div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="h-4 bg-gray-100 rounded w-16"></div>
+                        </td>
+                      </tr>
+                    ))
+                  : users.map((u) => (
+                      <tr
+                        key={u.id}
+                        className="hover:bg-slate-800/50 transition-colors"
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">
+                          #{u.id}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap font-medium text-slate-100">
+                          {u.name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-slate-300">
+                          {u.email}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <select
+                            value={u.role}
+                            onChange={(e) =>
+                              handleRoleChange(u.id, e.target.value)
+                            }
+                            className={`block w-full py-2 px-3 border border-slate-600 bg-slate-800 text-slate-100 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-medium transition-all
                                 ${
                                   u.role === "ADMIN"
-                                    ? "text-purple-600 font-bold"
+                                    ? "text-purple-400 font-bold"
                                     : ""
                                 }
                                 ${
                                   u.role === "TEACHER"
-                                    ? "text-blue-600 font-medium"
+                                    ? "text-blue-400 font-semibold"
                                     : ""
                                 }
                             `}
-                      >
-                        <option value="STUDENT">Öğrenci</option>
-                        <option value="TEACHER">Eğitmen</option>
-                        <option value="ADMIN">Yönetici</option>
-                      </select>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                      <button
-                        onClick={() => openEditModal(u)}
-                        className="text-indigo-600 hover:text-indigo-900"
-                      >
-                        Düzenle
-                      </button>
-                      <button
-                        onClick={() => handleDeleteClick(u.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Sil
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                          >
+                            <option value="STUDENT">Öğrenci</option>
+                            <option value="TEACHER">Eğitmen</option>
+                            <option value="ADMIN">Yönetici</option>
+                          </select>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold space-x-3">
+                          <button
+                            onClick={() => openEditModal(u)}
+                            className="text-indigo-400 hover:text-indigo-300 transition-colors"
+                          >
+                            Düzenle
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(u.id)}
+                            className="text-red-400 hover:text-red-300 transition-colors"
+                          >
+                            Sil
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
               </tbody>
             </table>
           </div>
 
           {/* Pagination */}
-          <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex items-center justify-between sm:px-6">
+          <div className="bg-slate-800/50 px-4 py-3 border-t border-slate-700 flex items-center justify-between sm:px-6">
             <div className="flex-1 flex justify-between sm:hidden">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                className="relative inline-flex items-center px-4 py-2 border border-slate-600 text-sm font-medium rounded-xl text-slate-200 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 transition-colors"
               >
                 Önceki
               </button>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                className="ml-3 relative inline-flex items-center px-4 py-2 border border-slate-600 text-sm font-medium rounded-xl text-slate-200 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 transition-colors"
               >
                 Sonraki
               </button>
             </div>
             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm text-gray-700">
-                  Toplam <span className="font-medium">{totalPages}</span> sayfa
+                <p className="text-sm text-slate-300">
+                  Toplam{" "}
+                  <span className="font-semibold text-slate-100">
+                    {totalPages}
+                  </span>{" "}
+                  sayfa
                 </p>
               </div>
               <div>
@@ -398,18 +440,18 @@ export default function UserManagement() {
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    className="relative inline-flex items-center px-3 py-2 rounded-l-xl border border-slate-600 bg-slate-800 text-sm font-medium text-slate-300 hover:bg-slate-700 disabled:opacity-50 transition-colors"
                   >
                     <span className="sr-only">Önceki</span>
                     &larr;
                   </button>
-                  <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                  <span className="relative inline-flex items-center px-4 py-2 border-t border-b border-slate-600 bg-slate-800 text-sm font-semibold text-slate-100">
                     {page}
                   </span>
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page === totalPages}
-                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    className="relative inline-flex items-center px-3 py-2 rounded-r-xl border border-slate-600 bg-slate-800 text-sm font-medium text-slate-300 hover:bg-slate-700 disabled:opacity-50 transition-colors"
                   >
                     <span className="sr-only">Sonraki</span>
                     &rarr;
@@ -423,13 +465,13 @@ export default function UserManagement() {
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
+        <div className="fixed inset-0 overflow-y-auto" style={{ zIndex: 9999 }}>
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             <div
               className="fixed inset-0 transition-opacity"
               aria-hidden="true"
             >
-              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+              <div className="absolute inset-0 bg-black/75 backdrop-blur-sm"></div>
             </div>
 
             <span
@@ -439,17 +481,17 @@ export default function UserManagement() {
               &#8203;
             </span>
 
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div className="inline-block align-bottom bg-slate-800 rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-slate-700">
               <form onSubmit={handleModalSubmit}>
-                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                <div className="bg-slate-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                  <h3 className="text-lg leading-6 font-bold text-slate-100 mb-4">
                     {modalMode === "create"
                       ? "Yeni Kullanıcı Ekle"
                       : "Kullanıcı Düzenle"}
                   </h3>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
+                      <label className="block text-sm font-bold text-slate-300 mb-2 ml-1">
                         İsim
                       </label>
                       <input
@@ -462,11 +504,11 @@ export default function UserManagement() {
                             name: e.target.value,
                           })
                         }
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        className="block w-full border border-slate-600 bg-slate-900 text-slate-100 rounded-xl shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all placeholder:text-slate-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
+                      <label className="block text-sm font-bold text-slate-300 mb-2 ml-1">
                         Email
                       </label>
                       <input
@@ -479,14 +521,14 @@ export default function UserManagement() {
                             email: e.target.value,
                           })
                         }
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        className="block w-full border border-slate-600 bg-slate-900 text-slate-100 rounded-xl shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all placeholder:text-slate-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
+                      <label className="block text-sm font-bold text-slate-300 mb-2 ml-1">
                         Şifre
                         {modalMode === "edit" && (
-                          <span className="text-xs text-gray-500 ml-2">
+                          <span className="text-xs text-slate-500 ml-2 font-normal">
                             (Değiştirmek istemiyorsanız boş bırakın)
                           </span>
                         )}
@@ -501,11 +543,11 @@ export default function UserManagement() {
                             password: e.target.value,
                           })
                         }
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        className="block w-full border border-slate-600 bg-slate-900 text-slate-100 rounded-xl shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all placeholder:text-slate-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
+                      <label className="block text-sm font-bold text-slate-300 mb-2 ml-1">
                         Rol
                       </label>
                       <select
@@ -516,7 +558,7 @@ export default function UserManagement() {
                             role: e.target.value as User["role"],
                           })
                         }
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        className="block w-full border border-slate-600 bg-slate-900 text-slate-100 rounded-xl shadow-sm py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all"
                       >
                         <option value="STUDENT">Öğrenci</option>
                         <option value="TEACHER">Eğitmen</option>
@@ -525,18 +567,18 @@ export default function UserManagement() {
                     </div>
                   </div>
                 </div>
-                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <div className="bg-slate-900/50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-2">
                   <button
                     type="submit"
                     disabled={modalLoading}
-                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
+                    className="w-full inline-flex justify-center rounded-xl border border-transparent shadow-lg px-5 py-2.5 bg-indigo-600 text-base font-semibold text-white hover:bg-indigo-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm shadow-indigo-900/50 hover:shadow-xl hover:shadow-indigo-900/60 transition-all duration-200 active:scale-95 disabled:opacity-50"
                   >
                     {modalLoading ? "Kaydediliyor..." : "Kaydet"}
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                    className="mt-3 w-full inline-flex justify-center rounded-xl border border-slate-700 shadow-sm px-5 py-2.5 bg-slate-800 text-base font-semibold text-slate-300 hover:bg-slate-700 hover:border-slate-600 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm transition-all duration-200"
                   >
                     İptal
                   </button>
@@ -548,13 +590,16 @@ export default function UserManagement() {
       )}
       {/* Delete Confirmation Modal */}
       {deleteId && (
-        <div className="fixed inset-0 z-[60] overflow-y-auto">
+        <div
+          className="fixed inset-0 overflow-y-auto"
+          style={{ zIndex: 10000 }}
+        >
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             <div
               className="fixed inset-0 transition-opacity"
               aria-hidden="true"
             >
-              <div className="absolute inset-0 bg-gray-900/75 backdrop-blur-sm"></div>
+              <div className="absolute inset-0 bg-black/75 backdrop-blur-sm"></div>
             </div>
 
             <span
@@ -564,12 +609,12 @@ export default function UserManagement() {
               &#8203;
             </span>
 
-            <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-gray-100">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <div className="inline-block align-bottom bg-slate-800 rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-slate-700">
+              <div className="bg-slate-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
-                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-900/30 border border-red-800 sm:mx-0 sm:h-10 sm:w-10">
                     <svg
-                      className="h-6 w-6 text-red-600"
+                      className="h-6 w-6 text-red-400"
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
                       viewBox="0 0 24 24"
@@ -586,13 +631,13 @@ export default function UserManagement() {
                   </div>
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
                     <h3
-                      className="text-lg leading-6 font-bold text-gray-900"
+                      className="text-lg leading-6 font-bold text-slate-100"
                       id="modal-title"
                     >
                       Kullanıcıyı Sil
                     </h3>
                     <div className="mt-2">
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-slate-400">
                         Bu kullanıcıyı silmek istediğinize emin misiniz? Bu
                         işlem geri alınamaz ve kullanıcıya ait tüm veriler
                         silinecektir.
@@ -601,18 +646,93 @@ export default function UserManagement() {
                   </div>
                 </div>
               </div>
-              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-2">
+              <div className="bg-slate-900/50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-2">
                 <button
                   type="button"
                   onClick={confirmDelete}
-                  className="w-full inline-flex justify-center rounded-xl border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm shadow-red-200 transition-all duration-200"
+                  className="w-full inline-flex justify-center rounded-xl border border-transparent shadow-lg px-5 py-2.5 bg-red-600 text-base font-semibold text-white hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm shadow-red-900/50 hover:shadow-xl hover:shadow-red-900/60 transition-all duration-200 active:scale-95"
                 >
                   Evet, Sil
                 </button>
                 <button
                   type="button"
                   onClick={() => setDeleteId(null)}
-                  className="mt-3 w-full inline-flex justify-center rounded-xl border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm transition-all duration-200"
+                  className="mt-3 w-full inline-flex justify-center rounded-xl border border-slate-700 shadow-sm px-5 py-2.5 bg-slate-800 text-base font-semibold text-slate-300 hover:bg-slate-700 hover:border-slate-600 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm transition-all duration-200"
+                >
+                  İptal
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Role Change Confirmation Modal */}
+      {roleChangePending && (
+        <div
+          className="fixed inset-0 overflow-y-auto"
+          style={{ zIndex: 10000 }}
+        >
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div
+              className="fixed inset-0 transition-opacity"
+              aria-hidden="true"
+            >
+              <div className="absolute inset-0 bg-black/75 backdrop-blur-sm"></div>
+            </div>
+
+            <span
+              className="hidden sm:inline-block sm:align-middle sm:h-screen"
+              aria-hidden="true"
+            >
+              &#8203;
+            </span>
+
+            <div className="inline-block align-bottom bg-slate-800 rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-slate-700">
+              <div className="bg-slate-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-indigo-900/30 border border-indigo-800 sm:mx-0 sm:h-10 sm:w-10">
+                    <svg
+                      className="h-6 w-6 text-indigo-400"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
+                    </svg>
+                  </div>
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <h3 className="text-lg leading-6 font-bold text-slate-100">
+                      Rolü Değiştir
+                    </h3>
+                    <div className="mt-2">
+                      <p className="text-sm text-slate-400">
+                        Kullanıcının yetki seviyesini değiştirmek istediğinize
+                        emin misiniz? Bu işlem kullanıcının sistemdeki erişim
+                        haklarını etkileyecektir.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-slate-900/50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-2">
+                <button
+                  type="button"
+                  onClick={confirmRoleChange}
+                  className="w-full inline-flex justify-center rounded-xl border border-transparent shadow-lg px-5 py-2.5 bg-indigo-600 text-base font-semibold text-white hover:bg-indigo-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm shadow-indigo-900/50 hover:shadow-xl hover:shadow-indigo-900/60 transition-all duration-200 active:scale-95"
+                >
+                  Evet, Değiştir
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoleChangePending(null)}
+                  className="mt-3 w-full inline-flex justify-center rounded-xl border border-slate-700 shadow-sm px-5 py-2.5 bg-slate-800 text-base font-semibold text-slate-300 hover:bg-slate-700 hover:border-slate-600 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm transition-all duration-200"
                 >
                   İptal
                 </button>

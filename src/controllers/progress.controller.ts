@@ -28,7 +28,7 @@ export class ProgressController {
   async getPathProgress(req: Request, res: Response) {
     try {
       const userId = req.user!.userId;
-      const pathId = parseInt(req.params.pathId);
+      const pathId = parseInt(req.params.pathId as string);
       const progress = await progressService.getPathProgress(userId, pathId);
       res.json({ success: true, data: progress });
     } catch (error: any) {
@@ -52,7 +52,7 @@ export class ProgressController {
   async completeNode(req: Request, res: Response) {
     try {
       const userId = req.user!.userId;
-      const pathId = parseInt(req.params.pathId);
+      const pathId = parseInt(req.params.pathId as string);
       const { nodeId } = completeNodeSchema.parse(req.body);
       const progress = await progressService.completeNode(
         userId,
@@ -69,7 +69,7 @@ export class ProgressController {
   async resetProgress(req: Request, res: Response) {
     try {
       const userId = req.user!.userId;
-      const pathId = parseInt(req.params.pathId);
+      const pathId = parseInt(req.params.pathId as string);
       const progress = await progressService.resetProgress(userId, pathId);
       res.json({ success: true, data: progress });
     } catch (error: any) {
@@ -85,6 +85,18 @@ export class ProgressController {
       res.json({ success: true, data: stats });
     } catch (error: any) {
       res.status(500).json({ success: false, message: error.message });
+    }
+  }
+
+  // İlerlemeyi sil (Eğitimi Bırak)
+  async abandonProgress(req: Request, res: Response) {
+    try {
+      const userId = req.user!.userId;
+      const pathId = parseInt(req.params.pathId as string);
+      await progressService.abandonProgress(userId, pathId);
+      res.json({ success: true, message: "Eğitimden ayrıldınız" });
+    } catch (error: any) {
+      res.status(400).json({ success: false, message: error.message });
     }
   }
 }

@@ -7,6 +7,7 @@ import type { Node } from "../services/nodeService";
 import { progressService } from "../services/progressService";
 import type { UserProgress } from "../services/progressService";
 import { useAuthStore } from "../store/authStore";
+import { PathCardSkeleton } from "../components/Skeleton";
 
 export default function PathDetail() {
   const { id } = useParams<{ id: string }>();
@@ -124,8 +125,8 @@ export default function PathDetail() {
                 p-5 rounded-2xl border-2 cursor-pointer transition-all duration-300 relative overflow-hidden backdrop-blur-sm
                 ${
                   isCompleted
-                    ? "bg-green-50/50 border-green-200 hover:border-green-300 hover:shadow-green-100"
-                    : "bg-white border-gray-100 hover:border-indigo-300 hover:shadow-indigo-100 hover:-translate-y-1"
+                    ? "bg-emerald-900/30 border-emerald-700 hover:border-emerald-600 hover:shadow-emerald-900/50"
+                    : "card-hover hover:-translate-y-1"
                 }
                 shadow-sm
               `}
@@ -134,7 +135,7 @@ export default function PathDetail() {
               <div
                 className={`absolute top-0 bottom-0 left-0 w-1.5 transition-colors duration-300 ${
                   isCompleted
-                    ? "bg-green-500"
+                    ? "bg-emerald-500"
                     : "bg-transparent group-hover:bg-indigo-500"
                 }`}
               />
@@ -146,8 +147,8 @@ export default function PathDetail() {
                       w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-colors
                       ${
                         isCompleted
-                          ? "bg-green-100 text-green-600"
-                          : "bg-gray-100 text-gray-400 group-hover:bg-indigo-50 group-hover:text-indigo-600"
+                          ? "bg-emerald-900/50 text-emerald-300"
+                          : "bg-slate-700 text-slate-400 group-hover:bg-indigo-900/50 group-hover:text-indigo-400"
                       }
                    `}
                   >
@@ -203,14 +204,14 @@ export default function PathDetail() {
                     <h4
                       className={`text-lg font-bold mb-1 transition-colors ${
                         isCompleted
-                          ? "text-green-800"
-                          : "text-gray-800 group-hover:text-indigo-700"
+                          ? "text-emerald-300"
+                          : "text-slate-100 group-hover:text-indigo-400"
                       }`}
                     >
                       {node.title}
                     </h4>
                     {node.description && (
-                      <p className="text-sm text-gray-500 line-clamp-2">
+                      <p className="text-sm text-slate-400 line-clamp-2">
                         {node.description}
                       </p>
                     )}
@@ -220,8 +221,8 @@ export default function PathDetail() {
                 <div
                   className={`p-2 rounded-full transition-transform duration-300 group-hover:translate-x-1 ${
                     isCompleted
-                      ? "text-green-500 bg-green-100/50"
-                      : "text-gray-300 group-hover:text-indigo-500 bg-white shadow-sm border border-gray-100"
+                      ? "text-emerald-400 bg-emerald-900/30"
+                      : "text-slate-500 group-hover:text-indigo-400 bg-slate-800 shadow-sm border border-slate-700"
                   }`}
                 >
                   {hasChildren ? (
@@ -270,59 +271,82 @@ export default function PathDetail() {
     });
   };
 
-  if (loading) {
+  if (!isAuthenticated && !loading) {
+    navigate("/login");
+    return null;
+  }
+
+  if (loading && !path) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-xl">Yükleniyor...</div>
+      <div className="min-h-screen bg-slate-900 p-8">
+        <div className="container mx-auto max-w-4xl">
+          <PathCardSkeleton />
+          <div className="mt-8 space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-24 bg-white/60 rounded-2xl animate-pulse border border-gray-100 shadow-sm"
+              ></div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!path) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-xl text-red-600">Eğitim bulunamadı</div>
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <div className="text-4xl">🔍</div>
+        <div className="text-xl font-bold text-gray-800">Eğitim bulunamadı</div>
+        <button
+          onClick={() => navigate("/")}
+          className="bg-indigo-600 text-white px-6 py-2 rounded-xl"
+        >
+          Ana Sayfaya Dön
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 relative selection:bg-indigo-100 selection:text-indigo-700">
-      {/* Dynamic Background Elements */}
+    <div className="min-h-screen bg-slate-900 relative selection:bg-indigo-600 selection:text-white">
+      {/* Background patterns */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-100 rounded-full blur-3xl opacity-40 translate-x-1/3 -translate-y-1/3" />
-        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-purple-100 rounded-full blur-3xl opacity-40 -translate-x-1/3 translate-y-1/3" />
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2" />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-violet-600/10 rounded-full blur-3xl -translate-x-1/2 translate-y-1/2" />
       </div>
 
-      <header className="bg-white/80 backdrop-blur-xl border-b border-indigo-50/50 sticky top-0 z-30 shadow-sm transition-all duration-300">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex flex-col gap-4">
-            {/* Top Row: Navigation */}
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => navigate("/")}
-                className="flex items-center gap-2 group text-gray-600 hover:text-indigo-600 transition-colors"
-                title="Ana Sayfaya Dön"
-              >
-                <div className="w-10 h-10 rounded-xl bg-gray-100 group-hover:bg-indigo-50 border border-gray-200 group-hover:border-indigo-100 flex items-center justify-center transition-all">
+      <header className="nav-header">
+        <div className="container mx-auto px-6 py-3">
+          <div className="flex flex-col gap-3">
+            {/* Top Row */}
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => navigate("/")}
+                  className="p-2.5 text-slate-400 hover:text-indigo-400 bg-slate-800 rounded-xl transition-all hover:bg-slate-700 group"
+                  aria-label="Geri Dön"
+                >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 transition-transform group-hover:-translate-x-1"
-                    viewBox="0 0 24 24"
+                    className="h-5 w-5 group-hover:-translate-x-1 transition-transform"
                     fill="none"
+                    viewBox="0 0 24 24"
                     stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
                   >
-                    <path d="M19 12H5" />
-                    <path d="M12 19l-7-7 7-7" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2.5}
+                      d="M15 19l-7-7 7-7"
+                    />
                   </svg>
-                </div>
-                <span className="font-medium hidden sm:inline">Ana Sayfa</span>
-              </button>
+                </button>
+                <div className="h-6 w-px bg-slate-700 mx-1"></div>
+              </div>
 
-              <div className="flex gap-2">
+              <div className="flex items-center gap-4">
                 {path.category && (
                   <span className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-medium border border-indigo-100">
                     <svg
@@ -359,29 +383,75 @@ export default function PathDetail() {
                 )}
               </div>
             </div>
-
-            {/* Bottom Row: Title & Info */}
-            <div className="pb-2">
-              <h1 className="text-3xl font-bold text-gray-900 leading-tight">
-                {path.title}
-              </h1>
-              {path.description && (
-                <p className="text-gray-600 mt-2 max-w-3xl leading-relaxed">
-                  {path.description}
-                </p>
-              )}
-            </div>
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8 relative z-10">
         <div className="max-w-4xl mx-auto space-y-8">
+          {/* Course Hero & Action Section */}
+          <div
+            className={`${
+              progress
+                ? "card"
+                : "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-xl shadow-indigo-900/50"
+            } rounded-2xl p-8 relative overflow-hidden group`}
+          >
+            {!progress && (
+              <>
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 group-hover:bg-white/20 transition-all duration-700"></div>
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 group-hover:bg-black/20 transition-all duration-700"></div>
+              </>
+            )}
+
+            <div className="relative z-10">
+              <h1
+                className={`text-3xl md:text-4xl font-bold mb-4 leading-tight ${
+                  progress ? "text-slate-100" : "text-white"
+                }`}
+              >
+                {path.title}
+              </h1>
+
+              {path.description && (
+                <p
+                  className={`text-lg mb-8 max-w-3xl leading-relaxed ${
+                    progress ? "text-slate-400" : "text-indigo-100"
+                  }`}
+                >
+                  {path.description}
+                </p>
+              )}
+
+              {!progress && isAuthenticated && nodes.length > 0 && (
+                <button
+                  onClick={handleStartPath}
+                  className="bg-white text-indigo-600 px-10 py-4 rounded-xl hover:bg-gray-50 transition-all duration-300 font-bold text-lg shadow-lg hover:shadow-xl hover:-translate-y-1 active:translate-y-0 flex items-center gap-2 w-fit"
+                >
+                  <span>Yolculuğa Başla</span>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Progress Section */}
           {progress && (
-            <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-sm border border-indigo-50">
+            <div className="card">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
                   <span className="p-1.5 bg-indigo-100 rounded-lg text-indigo-600">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -421,44 +491,9 @@ export default function PathDetail() {
             </div>
           )}
 
-          {/* Start / Continue Action */}
-          {!progress && isAuthenticated && nodes.length > 0 && (
-            <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl p-8 shadow-xl shadow-indigo-200 text-white flex flex-col items-center text-center relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 group-hover:bg-white/20 transition-all duration-700"></div>
-              <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 group-hover:bg-black/20 transition-all duration-700"></div>
-
-              <h2 className="text-3xl font-bold mb-4 relative z-10">
-                Eğitim Yolculuğuna Başla!
-              </h2>
-              <p className="text-indigo-100 mb-8 max-w-lg relative z-10 text-lg">
-                Bu eğitim seti ile kariyerinde yeni bir sayfa aç. Hazırsan hemen
-                başlayalım.
-              </p>
-              <button
-                onClick={handleStartPath}
-                className="relative z-10 bg-white text-indigo-600 px-10 py-4 rounded-xl hover:bg-gray-50 transition-all duration-300 font-bold text-lg shadow-lg hover:shadow-xl hover:-translate-y-1 active:translate-y-0 flex items-center gap-2"
-              >
-                <span>Yolculuğa Başla</span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                  <polyline points="12 5 19 12 12 19" />
-                </svg>
-              </button>
-            </div>
-          )}
-
           {/* Content Tree */}
-          <div className="bg-white/60 backdrop-blur-md rounded-2xl p-8 shadow-sm border border-gray-100">
-            <h2 className="text-2xl font-bold mb-8 text-gray-900 flex items-center gap-2">
+          <div className="card">
+            <h2 className="text-2xl font-bold mb-8 text-slate-100 flex items-center gap-2">
               <span className="p-2 bg-orange-100 rounded-lg text-orange-600">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"

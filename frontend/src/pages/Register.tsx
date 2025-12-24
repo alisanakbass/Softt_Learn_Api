@@ -3,6 +3,7 @@ import { isAxiosError } from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import { authService } from "../services/authService";
 import { useAuthStore } from "../store/authStore";
+import toast from "react-hot-toast";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -23,12 +24,16 @@ export default function Register() {
 
     // Şifre kontrolü
     if (formData.password !== formData.confirmPassword) {
-      setError("Şifreler eşleşmiyor");
+      const msg = "Şifreler eşleşmiyor";
+      setError(msg);
+      toast.error(msg);
       return;
     }
 
     if (formData.password.length < 6) {
-      setError("Şifre en az 6 karakter olmalıdır");
+      const msg = "Şifre en az 6 karakter olmalıdır";
+      setError(msg);
+      toast.error(msg);
       return;
     }
 
@@ -43,15 +48,22 @@ export default function Register() {
 
       if (response.success && response.data) {
         setAuth(response.data.user, response.data.token);
+        toast.success("Kayıt başarıyla tamamlandı!");
         navigate("/");
       } else {
-        setError(response.message || "Kayıt başarısız");
+        const msg = response.message || "Kayıt başarısız";
+        setError(msg);
+        toast.error(msg);
       }
     } catch (err) {
       if (isAxiosError(err)) {
-        setError(err.response?.data?.message || "Bir hata oluştu");
+        const msg = err.response?.data?.message || "Bir hata oluştu";
+        setError(msg);
+        toast.error(msg);
       } else {
-        setError("Beklenmedik bir hata oluştu");
+        const msg = "Beklenmedik bir hata oluştu";
+        setError(msg);
+        toast.error(msg);
       }
     } finally {
       setLoading(false);
@@ -59,20 +71,29 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background Decorations */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/2" />
+        <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-pink-600/10 rounded-full blur-3xl translate-y-1/2 translate-x-1/2" />
+      </div>
+
+      <div className="card w-full max-w-md p-8 relative z-10 animate-fadeIn">
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-purple-600 mb-2">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-2">
             🎓 SoftLearn
           </h1>
-          <p className="text-gray-600">Yeni hesap oluşturun</p>
+          <p className="text-slate-400">Yeni hesap oluşturun</p>
         </div>
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-            {error}
+          <div className="bg-red-900/30 border border-red-700 text-red-300 px-4 py-3 rounded-lg mb-6 animate-fadeIn">
+            <div className="flex items-center gap-2">
+              <span>⚠️</span>
+              <span>{error}</span>
+            </div>
           </div>
         )}
 
@@ -81,7 +102,7 @@ export default function Register() {
           <div>
             <label
               htmlFor="name"
-              className="block text-sm font-medium text-gray-700 mb-2"
+              className="block text-sm font-medium text-slate-300 mb-2"
             >
               Ad Soyad
             </label>
@@ -93,7 +114,7 @@ export default function Register() {
               onChange={(e) =>
                 setFormData({ ...formData, name: e.target.value })
               }
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+              className="input"
               placeholder="Adınız Soyadınız"
             />
           </div>
@@ -101,7 +122,7 @@ export default function Register() {
           <div>
             <label
               htmlFor="email"
-              className="block text-sm font-medium text-gray-700 mb-2"
+              className="block text-sm font-medium text-slate-300 mb-2"
             >
               E-posta
             </label>
@@ -113,7 +134,7 @@ export default function Register() {
               onChange={(e) =>
                 setFormData({ ...formData, email: e.target.value })
               }
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+              className="input"
               placeholder="ornek@email.com"
             />
           </div>
@@ -121,7 +142,7 @@ export default function Register() {
           <div>
             <label
               htmlFor="password"
-              className="block text-sm font-medium text-gray-700 mb-2"
+              className="block text-sm font-medium text-slate-300 mb-2"
             >
               Şifre
             </label>
@@ -133,7 +154,7 @@ export default function Register() {
               onChange={(e) =>
                 setFormData({ ...formData, password: e.target.value })
               }
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+              className="input"
               placeholder="••••••••"
             />
           </div>
@@ -141,7 +162,7 @@ export default function Register() {
           <div>
             <label
               htmlFor="confirmPassword"
-              className="block text-sm font-medium text-gray-700 mb-2"
+              className="block text-sm font-medium text-slate-300 mb-2"
             >
               Şifre Tekrar
             </label>
@@ -153,7 +174,7 @@ export default function Register() {
               onChange={(e) =>
                 setFormData({ ...formData, confirmPassword: e.target.value })
               }
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+              className="input"
               placeholder="••••••••"
             />
           </div>
@@ -161,20 +182,43 @@ export default function Register() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-purple-600 text-white py-3 rounded-lg font-medium hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 rounded-lg font-medium transition-all shadow-lg shadow-purple-900/50 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
           >
-            {loading ? "Kayıt yapılıyor..." : "Kayıt Ol"}
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg
+                  className="animate-spin h-5 w-5"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                Kayıt yapılıyor...
+              </span>
+            ) : (
+              "Kayıt Ol"
+            )}
           </button>
         </form>
 
         {/* Login Link */}
-        <div className="mt-6 text-center">
-          <p className="text-gray-600">
+        <div className="mt-8 text-center">
+          <p className="text-slate-400">
             Zaten hesabınız var mı?{" "}
-            <Link
-              to="/login"
-              className="text-purple-600 font-medium hover:text-purple-700"
-            >
+            <Link to="/login" className="link font-medium">
               Giriş Yapın
             </Link>
           </p>

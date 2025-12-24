@@ -105,26 +105,50 @@ export class NodeService {
 
   // Ağaç yapısını getir (root node'lardan başlayarak)
   async getTree(pathId: number) {
-    const rootNodes = await prisma.node.findMany({
-      where: {
-        pathId,
-        parentId: null, // Root node'lar
-      },
+    // Önce tüm node'ları çek
+    const allNodes = await prisma.node.findMany({
+      where: { pathId },
       include: {
         content: true,
-        children: {
-          include: {
-            content: true,
-            children: {
-              include: {
-                content: true,
-              },
-            },
-          },
-          orderBy: { order: "asc" },
-        },
       },
       orderBy: { order: "asc" },
+    });
+
+    // Node'ları ID'ye göre map'e dönüştür
+    const nodeMap = new Map();
+    allNodes.forEach((node) => {
+      nodeMap.set(node.id, { ...node, children: [] });
+    });
+
+    // Root node'ları ve children ilişkilerini oluştur
+    const rootNodes: any[] = [];
+    allNodes.forEach((node) => {
+      const nodeWithChildren = nodeMap.get(node.id);
+      if (node.parentId === null) {
+        rootNodes.push(nodeWithChildren);
+      } else {
+        const parent = nodeMap.get(node.parentId);
+        if (parent) {
+          parent.children.push(nodeWithChildren);
+        }
+      }
+    });
+
+    // Her seviyede children'ı order'a göre sırala
+    const sortChildren = (nodes: any[]) => {
+      nodes.sort((a, b) => a.order - b.order);
+      nodes.forEach((node) => {
+        if (node.children && node.children.length > 0) {
+          sortChildren(node.children);
+        }
+      });
+    };
+
+    sortChildren(rootNodes);
+    rootNodes.forEach((node) => {
+      if (node.children && node.children.length > 0) {
+        sortChildren(node.children);
+      }
     });
 
     return rootNodes;

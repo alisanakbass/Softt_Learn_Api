@@ -8,6 +8,12 @@ import { questionService } from "../services/questionService";
 import type { CheckAnswerResponse } from "../services/questionService";
 import { progressService } from "../services/progressService";
 import { useAuthStore } from "../store/authStore";
+import toast from "react-hot-toast";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import type { SyntaxHighlighterProps } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 export default function NodeDetail() {
   const { id } = useParams<{ id: string }>();
@@ -57,7 +63,7 @@ export default function NodeDetail() {
 
     try {
       await progressService.completeNode(node.pathId, node.id);
-      alert("✅ Tamamlandı!");
+      toast.success("Eğitim adımı tamamlandı!");
       navigate(`/path/${node.pathId}`);
     } catch (error) {
       console.error("Node tamamlanamadı:", error);
@@ -71,7 +77,7 @@ export default function NodeDetail() {
   const handleCheckAnswer = async (questionId: number) => {
     const userAnswer = quizAnswers[questionId];
     if (userAnswer === undefined) {
-      alert("Lütfen bir cevap seçin");
+      toast.error("Lütfen bir cevap seçin.");
       return;
     }
 
@@ -85,65 +91,87 @@ export default function NodeDetail() {
     }
   };
 
-  if (loading) {
+  if (!isAuthenticated && !loading) {
+    navigate("/login");
+    return null;
+  }
+
+  if (loading && !node) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-xl">Yükleniyor...</div>
+      <div className="min-h-screen bg-slate-50 p-8">
+        <div className="container mx-auto max-w-4xl space-y-8">
+          <div className="h-12 bg-white rounded-xl animate-pulse shadow-sm w-3/4"></div>
+          <div className="h-64 bg-white rounded-2xl animate-pulse shadow-sm"></div>
+          <div className="space-y-4">
+            <div className="h-4 bg-gray-200 animate-pulse rounded w-full"></div>
+            <div className="h-4 bg-gray-200 animate-pulse rounded w-full"></div>
+            <div className="h-4 bg-gray-200 animate-pulse rounded w-2/3"></div>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!node) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-xl text-red-600">İçerik bulunamadı</div>
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <div className="text-4xl">🔍</div>
+        <div className="text-xl font-bold text-gray-800">İçerik bulunamadı</div>
+        <button
+          onClick={() => navigate("/")}
+          className="bg-indigo-600 text-white px-6 py-2 rounded-xl"
+        >
+          Ana Sayfaya Dön
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 relative selection:bg-indigo-100 selection:text-indigo-700">
-      {/* Dynamic Background Elements */}
+    <div className="min-h-screen bg-slate-900 relative selection:bg-indigo-600 selection:text-white">
+      {/* Background patterns */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-100 rounded-full blur-3xl opacity-40 translate-x-1/3 -translate-y-1/3" />
-        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-purple-100 rounded-full blur-3xl opacity-40 -translate-x-1/3 translate-y-1/3" />
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2" />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-violet-600/10 rounded-full blur-3xl -translate-x-1/2 translate-y-1/2" />
       </div>
 
-      <header className="bg-white/80 backdrop-blur-xl border-b border-indigo-50/50 sticky top-0 z-30 shadow-sm transition-all duration-300">
+      <header className="nav-header">
         <div className="container mx-auto px-6 py-4">
-          <div className="flex flex-col gap-4">
-            <button
-              onClick={() => navigate(`/path/${node.pathId}`)}
-              className="flex items-center gap-2 group w-fit text-gray-600 hover:text-indigo-600 transition-colors"
-              title="Öğrenme Yoluna Geri Dön"
-            >
-              <div className="w-10 h-10 rounded-xl bg-gray-100 group-hover:bg-indigo-50 border border-gray-200 group-hover:border-indigo-100 flex items-center justify-center transition-all">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => navigate(`/path/${node?.pathId}`)}
+                className="p-2.5 text-slate-400 hover:text-indigo-400 bg-slate-800 rounded-xl transition-all hover:bg-slate-700 group"
+                aria-label="Eğitime Dön"
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 transition-transform group-hover:-translate-x-1"
-                  viewBox="0 0 24 24"
+                  className="h-5 w-5 group-hover:-translate-x-1 transition-transform"
                   fill="none"
+                  viewBox="0 0 24 24"
                   stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
                 >
-                  <path d="M19 12H5" />
-                  <path d="M12 19l-7-7 7-7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2.5}
+                    d="M15 19l-7-7 7-7"
+                  />
                 </svg>
-              </div>
-              <span className="font-medium hidden sm:inline">Geri Dön</span>
-            </button>
-
-            <div className="pb-2">
-              <h1 className="text-3xl font-bold text-gray-900 leading-tight">
-                {node.title}
+              </button>
+              <div className="h-6 w-px bg-slate-700 mx-1"></div>
+              <h1 className="text-xl font-bold text-slate-100 truncate max-w-xs md:max-w-md">
+                {node?.title}
               </h1>
-              {node.description && (
-                <p className="text-gray-600 mt-2 max-w-3xl leading-relaxed">
-                  {node.description}
-                </p>
-              )}
+            </div>
+
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handleCompleteNode}
+                className="hidden md:flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all font-semibold active:scale-95"
+              >
+                Tamamla ve Dön
+              </button>
             </div>
           </div>
         </div>
@@ -151,15 +179,19 @@ export default function NodeDetail() {
 
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         {content ? (
-          <div className="bg-white rounded-xl p-8 shadow-md mb-6">
-            <h2 className="text-2xl font-bold mb-4">{content.title}</h2>
-            {content.description && (
-              <p className="text-gray-600 mb-6">{content.description}</p>
-            )}
+          <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-indigo-50 overflow-hidden">
+            <div className="p-4 sm:p-10">
+              <h2 className="text-2xl font-bold mb-4 text-gray-900">
+                {content.title}
+              </h2>
+              {node?.description && (
+                <p className="text-slate-400 max-w-2xl">{node.description}</p>
+              )}
+            </div>
 
             {content.type === "VIDEO" && content.videoUrl && (
-              <div className="mb-6">
-                <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden">
+              <div className="relative mb-6">
+                <div className="aspect-video bg-gray-900 overflow-hidden">
                   <iframe
                     src={content.videoUrl}
                     className="w-full h-full"
@@ -167,23 +199,86 @@ export default function NodeDetail() {
                   ></iframe>
                 </div>
                 {content.duration && (
-                  <p className="text-sm text-gray-500 mt-2">
-                    ⏱️ Süre: {Math.floor(content.duration / 60)} dakika
-                  </p>
+                  <div className="absolute inset-0 bg-gradient-to-t from-gray-900/60 to-transparent pointer-events-none"></div>
                 )}
               </div>
             )}
 
             {content.type === "ARTICLE" && content.articleText && (
-              <div className="prose max-w-none mb-6">
-                <div className="whitespace-pre-wrap">{content.articleText}</div>
+              <div className="p-4 sm:p-10 pt-0">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    code({
+                      className,
+                      children,
+                      ...props
+                    }: React.ComponentPropsWithoutRef<"code">) {
+                      const match = /language-(\w+)/.exec(className || "");
+                      return match ? (
+                        <SyntaxHighlighter
+                          style={vscDarkPlus as SyntaxHighlighterProps["style"]}
+                          language={match[1]}
+                          PreTag="div"
+                          className="rounded-xl overflow-hidden shadow-lg border border-slate-700/50 my-6"
+                        >
+                          {String(children).replace(/\n$/, "")}
+                        </SyntaxHighlighter>
+                      ) : (
+                        <code
+                          className={`${className} bg-slate-100 text-indigo-600 px-1.5 py-0.5 rounded-md text-[0.9em] font-semibold`}
+                          {...props}
+                        >
+                          {children}
+                        </code>
+                      );
+                    },
+                    h1: ({ children }) => (
+                      <h1 className="text-3xl font-extrabold text-slate-900 mb-6">
+                        {children}
+                      </h1>
+                    ),
+                    h2: ({ children }) => (
+                      <h2 className="text-2xl font-bold text-slate-800 mt-10 mb-4 pb-2 border-b border-slate-100">
+                        {children}
+                      </h2>
+                    ),
+                    p: ({ children }) => (
+                      <p className="leading-relaxed text-slate-600 mb-5">
+                        {children}
+                      </p>
+                    ),
+                    ul: ({ children }) => (
+                      <ul className="list-disc pl-6 space-y-2 mb-6 text-slate-600">
+                        {children}
+                      </ul>
+                    ),
+                    ol: ({ children }) => (
+                      <ol className="list-decimal pl-6 space-y-2 mb-6 text-slate-600">
+                        {children}
+                      </ol>
+                    ),
+                    a: ({ children, href }) => (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-indigo-600 font-medium underline decoration-indigo-200 hover:decoration-indigo-50 transition-all"
+                      >
+                        {children}
+                      </a>
+                    ),
+                  }}
+                >
+                  {content.articleText}
+                </ReactMarkdown>
               </div>
             )}
 
             {content.type === "QUIZ" &&
               content.questions &&
               content.questions.length > 0 && (
-                <div className="space-y-6">
+                <div className="p-4 sm:p-10 pt-0 space-y-6">
                   {content.questions.map((question, qIndex) => {
                     const result = quizResults[question.id];
                     const selectedAnswer = quizAnswers[question.id];
@@ -191,9 +286,9 @@ export default function NodeDetail() {
                     return (
                       <div
                         key={question.id}
-                        className="border-2 border-gray-200 rounded-lg p-6"
+                        className="border border-gray-100 bg-slate-50/50 rounded-2xl p-6"
                       >
-                        <h3 className="font-bold text-lg mb-4">
+                        <h3 className="font-bold text-lg mb-4 text-gray-900">
                           Soru {qIndex + 1}: {question.question}
                         </h3>
 
@@ -201,17 +296,17 @@ export default function NodeDetail() {
                           {question.options.map((option, index) => (
                             <label
                               key={index}
-                              className={`flex items-center p-3 rounded-lg cursor-pointer transition ${
+                              className={`flex items-center p-4 rounded-xl cursor-pointer transition-all border ${
                                 result
                                   ? index === question.correctAnswer
-                                    ? "bg-green-100 border-2 border-green-500"
+                                    ? "bg-green-50 border-green-200 text-green-700"
                                     : index === selectedAnswer &&
                                       !result.isCorrect
-                                    ? "bg-red-100 border-2 border-red-500"
-                                    : "bg-gray-50"
+                                    ? "bg-red-50 border-red-200 text-red-700"
+                                    : "bg-white border-transparent text-gray-500"
                                   : selectedAnswer === index
-                                  ? "bg-indigo-100 border-2 border-indigo-500"
-                                  : "bg-gray-50 hover:bg-gray-100"
+                                  ? "bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm"
+                                  : "bg-white border-gray-100 hover:border-indigo-100 text-gray-600"
                               }`}
                             >
                               <input
@@ -223,9 +318,9 @@ export default function NodeDetail() {
                                   handleQuizAnswer(question.id, index)
                                 }
                                 disabled={!!result}
-                                className="mr-3"
+                                className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 mr-3"
                               />
-                              <span>{option}</span>
+                              <span className="font-medium">{option}</span>
                             </label>
                           ))}
                         </div>
@@ -233,7 +328,7 @@ export default function NodeDetail() {
                         {!result && (
                           <button
                             onClick={() => handleCheckAnswer(question.id)}
-                            className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition"
+                            className="w-full sm:w-auto px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-200 transition-all font-semibold active:scale-95"
                           >
                             Kontrol Et
                           </button>
@@ -241,18 +336,27 @@ export default function NodeDetail() {
 
                         {result && (
                           <div
-                            className={`p-4 rounded-lg ${
-                              result.isCorrect ? "bg-green-50" : "bg-red-50"
+                            className={`p-4 rounded-xl border flex items-start gap-3 ${
+                              result.isCorrect
+                                ? "bg-green-50 border-green-100 text-green-800"
+                                : "bg-red-50 border-red-100 text-red-800"
                             }`}
                           >
-                            <p className="font-bold mb-2">
-                              {result.isCorrect ? "✅ Doğru!" : "❌ Yanlış!"}
-                            </p>
-                            {result.explanation && (
-                              <p className="text-sm text-gray-700">
-                                {result.explanation}
+                            <span className="text-xl mt-0.5">
+                              {result.isCorrect ? "✨" : "💡"}
+                            </span>
+                            <div>
+                              <p className="font-bold mb-1">
+                                {result.isCorrect
+                                  ? "Harika! Doğru cevap."
+                                  : "Üzgünüm, bu yanlış cevap."}
                               </p>
-                            )}
+                              {result.explanation && (
+                                <p className="text-sm opacity-90 leading-relaxed">
+                                  {result.explanation}
+                                </p>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>

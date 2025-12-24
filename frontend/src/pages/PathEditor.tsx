@@ -10,6 +10,7 @@ import { pathService } from "../services/pathService";
 import { nodeService, type Node } from "../services/nodeService";
 import { useAuthStore } from "../store/authStore";
 import ContentEditorModal from "../components/ContentEditorModal";
+import toast from "react-hot-toast";
 
 export default function PathEditor() {
   const { id } = useParams<{ id: string }>();
@@ -30,6 +31,7 @@ export default function PathEditor() {
   const [targetNodeIdForNewContent, setTargetNodeIdForNewContent] = useState<
     number | null
   >(null);
+  const [deleteNodeId, setDeleteNodeId] = useState<number | null>(null);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -64,6 +66,19 @@ export default function PathEditor() {
     loadData();
   }, [id, user, navigate, loadData]);
 
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isModalOpen || isContentModalOpen || deleteNodeId !== null) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isModalOpen, isContentModalOpen, deleteNodeId]);
+
   const handleDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
 
@@ -82,8 +97,10 @@ export default function PathEditor() {
 
     try {
       await nodeService.reorder(updates);
+      toast.success("Sıralama güncellendi.");
     } catch (error) {
       console.error("Sıralama güncellenemedi:", error);
+      toast.error("Sıralama güncellenemedi.");
       // Revert on error (optional implementation)
       loadData();
     }
@@ -96,12 +113,14 @@ export default function PathEditor() {
     try {
       if (editingNode) {
         await nodeService.update(editingNode.id, formData);
+        toast.success("İçerik başarıyla güncellendi.");
       } else {
         await nodeService.create({
           ...formData,
           pathId: parseInt(id),
           order: nodes.length, // Add to end
         });
+        toast.success("İçerik başarıyla oluşturuldu.");
       }
 
       setIsModalOpen(false);
@@ -110,17 +129,24 @@ export default function PathEditor() {
       loadData();
     } catch (error) {
       console.error("Kaydetme hatası:", error);
+      toast.error("Kaydedilirken bir hata oluştu.");
     }
   };
 
-  const handleDelete = async (nodeId: number) => {
-    if (!window.confirm("Bu içeriği silmek istediğinize emin misiniz?")) return;
+  const handleDelete = (nodeId: number) => {
+    setDeleteNodeId(nodeId);
+  };
 
+  const confirmDelete = async () => {
+    if (!deleteNodeId) return;
     try {
-      await nodeService.delete(nodeId);
+      await nodeService.delete(deleteNodeId);
+      toast.success("İçerik başarıyla silindi.");
+      setDeleteNodeId(null);
       loadData();
     } catch (error) {
       console.error("Silme hatası:", error);
+      toast.error("Silinirken bir hata oluştu.");
     }
   };
 
@@ -153,25 +179,25 @@ export default function PathEditor() {
     return <div className="p-8 text-center text-xl">Yükleniyor...</div>;
 
   return (
-    <div className="min-h-screen bg-slate-50 relative selection:bg-indigo-100 selection:text-indigo-700">
+    <div className="min-h-screen bg-slate-900 relative selection:bg-indigo-600 selection:text-white">
       {/* Dynamic Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-100 rounded-full blur-3xl opacity-40 translate-x-1/3 -translate-y-1/3" />
-        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-sky-100 rounded-full blur-3xl opacity-40 -translate-x-1/3 translate-y-1/3" />
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-3xl translate-x-1/3 -translate-y-1/3" />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-sky-600/10 rounded-full blur-3xl -translate-x-1/3 translate-y-1/3" />
       </div>
 
-      <header className="bg-white/80 backdrop-blur-xl border-b border-indigo-50/50 sticky top-0 z-30 shadow-sm transition-all duration-300">
+      <header className={`nav-header ${isContentModalOpen ? "hidden" : ""}`}>
         <div className="container mx-auto px-6 py-4">
           <div className="flex flex-col lg:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-4 w-full">
               <button
-                onClick={() => navigate("/dashboard")}
-                className="w-10 h-10 rounded-xl bg-gray-100 hover:bg-indigo-50 border border-gray-200 hover:border-indigo-100 flex items-center justify-center transition-all group shrink-0"
+                onClick={() => navigate("/")}
+                className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-indigo-600 flex items-center justify-center transition-all group shrink-0"
                 title="Geri Dön"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 text-gray-500 group-hover:text-indigo-600 transition-colors"
+                  className="h-5 w-5 text-slate-400 group-hover:text-indigo-400 transition-colors"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -185,10 +211,13 @@ export default function PathEditor() {
               </button>
 
               <div className="min-w-0">
-                <h1 className="text-2xl font-bold text-gray-900 truncate">
+                <h1 className="text-2xl font-bold text-slate-100 truncate">
                   {pathTitle || "Yükleniyor..."}
                 </h1>
-                <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wider">
+                <p
+                  onClick={() => navigate("/profile")}
+                  className="text-xs font-bold text-indigo-500 uppercase tracking-wider hover:text-indigo-700 cursor-pointer transition-colors"
+                >
                   Eğitim Müfredatı Yönetimi
                 </p>
               </div>
@@ -237,11 +266,11 @@ export default function PathEditor() {
                         ref={provided.innerRef}
                         {...provided.draggableProps}
                         className={`
-                          group relative bg-white rounded-2xl p-5 border transition-all duration-200
+                          card-hover
                           ${
                             snapshot.isDragging
-                              ? "shadow-2xl scale-[1.02] border-indigo-300 rotate-1 z-50"
-                              : "shadow-sm border-gray-100 hover:border-indigo-200 hover:shadow-md"
+                              ? "shadow-2xl scale-[1.02] border-indigo-500 rotate-1 z-50"
+                              : "hover:shadow-xl"
                           }
                         `}
                       >
@@ -249,7 +278,7 @@ export default function PathEditor() {
                           {/* Drag Handle */}
                           <div
                             {...provided.dragHandleProps}
-                            className="mt-1 p-2 rounded-lg cursor-grab active:cursor-grabbing text-gray-300 hover:text-indigo-500 hover:bg-indigo-50 transition-colors"
+                            className="mt-1 p-2 rounded-lg cursor-grab active:cursor-grabbing text-slate-500 hover:text-indigo-400 hover:bg-indigo-900/30 transition-colors"
                           >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -273,7 +302,7 @@ export default function PathEditor() {
                           {/* Content */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-3 mb-2">
-                              <h3 className="font-bold text-gray-900 text-lg truncate">
+                              <h3 className="font-bold text-slate-100 text-lg truncate">
                                 {node.title}
                               </h3>
                               {node.content ? (
@@ -301,14 +330,14 @@ export default function PathEditor() {
                             </div>
 
                             {node.description && (
-                              <p className="text-gray-500 text-sm line-clamp-1 mb-1">
+                              <p className="text-slate-400 text-sm line-clamp-1 mb-1">
                                 {node.description}
                               </p>
                             )}
                           </div>
 
                           {/* Actions */}
-                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <div className="flex items-center gap-2 transition-opacity duration-200">
                             <button
                               onClick={() => openContentEditor(node)}
                               className={`
@@ -359,7 +388,7 @@ export default function PathEditor() {
 
                             <button
                               onClick={() => openModal(node)}
-                              className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                              className="p-2 text-slate-500 hover:text-indigo-400 hover:bg-indigo-900/30 rounded-lg transition-colors"
                               title="Başlığı Düzenle"
                             >
                               <svg
@@ -378,7 +407,7 @@ export default function PathEditor() {
 
                             <button
                               onClick={() => handleDelete(node.id)}
-                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-900/30 rounded-lg transition-colors"
                               title="Sil"
                             >
                               <svg
@@ -411,15 +440,18 @@ export default function PathEditor() {
 
         {/* Node Modal */}
         {isModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl p-8 w-full max-w-md">
-              <h2 className="text-2xl font-bold mb-6">
+          <div
+            className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
+            style={{ zIndex: 9999 }}
+          >
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 w-full max-w-md shadow-2xl">
+              <h2 className="text-2xl font-bold mb-6 text-slate-100">
                 {editingNode ? "Başlığı Düzenle" : "Yeni Başlık Ekle"}
               </h2>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-bold text-slate-300 mb-2 ml-1">
                     Başlık
                   </label>
                   <input
@@ -429,13 +461,13 @@ export default function PathEditor() {
                     onChange={(e) =>
                       setFormData({ ...formData, title: e.target.value })
                     }
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none transition-all placeholder:text-slate-500"
                     placeholder="Örn: Değişkenler nedir?"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-bold text-slate-300 mb-2 ml-1">
                     Açıklama (İsteğe bağlı)
                   </label>
                   <textarea
@@ -443,7 +475,7 @@ export default function PathEditor() {
                     onChange={(e) =>
                       setFormData({ ...formData, description: e.target.value })
                     }
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none transition-all placeholder:text-slate-500 resize-none"
                     rows={3}
                     placeholder="Kısa bir açıklama..."
                   />
@@ -453,13 +485,13 @@ export default function PathEditor() {
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                    className="px-5 py-2.5 text-slate-300 hover:bg-slate-700 rounded-xl font-semibold transition-all border border-slate-700 hover:border-slate-600"
                   >
                     İptal
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                    className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-semibold shadow-lg shadow-indigo-900/50 hover:shadow-xl hover:shadow-indigo-900/60 transition-all active:scale-95"
                   >
                     Kaydet
                   </button>
@@ -489,6 +521,80 @@ export default function PathEditor() {
           }}
         />
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteNodeId && (
+        <div
+          className="fixed inset-0 overflow-y-auto"
+          style={{ zIndex: 10000 }}
+        >
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div
+              className="fixed inset-0 transition-opacity"
+              aria-hidden="true"
+            >
+              <div className="absolute inset-0 bg-black/75 backdrop-blur-sm"></div>
+            </div>
+
+            <span
+              className="hidden sm:inline-block sm:align-middle sm:h-screen"
+              aria-hidden="true"
+            >
+              &#8203;
+            </span>
+
+            <div className="inline-block align-bottom bg-slate-800 rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-slate-700">
+              <div className="bg-slate-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-900/30 border border-red-800 sm:mx-0 sm:h-10 sm:w-10">
+                    <svg
+                      className="h-6 w-6 text-red-400"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
+                    </svg>
+                  </div>
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <h3 className="text-lg leading-6 font-bold text-slate-100">
+                      İçeriği Sil
+                    </h3>
+                    <div className="mt-2">
+                      <p className="text-sm text-slate-400">
+                        Bu içeriği silmek istediğinize emin misiniz? Bu işlem
+                        geri alınamaz.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-slate-900/50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse gap-2">
+                <button
+                  type="button"
+                  onClick={confirmDelete}
+                  className="w-full inline-flex justify-center rounded-xl border border-transparent shadow-lg px-5 py-2.5 bg-red-600 text-base font-semibold text-white hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm shadow-red-900/50 hover:shadow-xl hover:shadow-red-900/60 transition-all duration-200 active:scale-95"
+                >
+                  Evet, Sil
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeleteNodeId(null)}
+                  className="mt-3 w-full inline-flex justify-center rounded-xl border border-slate-700 shadow-sm px-5 py-2.5 bg-slate-800 text-base font-semibold text-slate-300 hover:bg-slate-700 hover:border-slate-600 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm transition-all duration-200"
+                >
+                  İptal
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

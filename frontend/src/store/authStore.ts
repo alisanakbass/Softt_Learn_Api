@@ -1,17 +1,12 @@
 import { create } from "zustand";
-
-interface User {
-  id: number;
-  email: string;
-  name: string;
-  role: string;
-}
+import type { User } from "../services/userService";
 
 interface AuthState {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
   setAuth: (user: User, token: string) => void;
+  setUser: (user: User) => void;
   logout: () => void;
   checkAuth: () => void;
 }
@@ -24,6 +19,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   setAuth: (user, token) => {
     localStorage.setItem("token", token);
     set({ user, token, isAuthenticated: true });
+  },
+
+  setUser: (user) => {
+    set({ user });
   },
 
   logout: () => {

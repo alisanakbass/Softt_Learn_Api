@@ -17,7 +17,17 @@ export class PathController {
       const categoryId = req.query.categoryId
         ? schemaId.parse(req.query.categoryId)
         : undefined;
-      const result = await pathServices.getAll(categoryId, page, limit);
+
+      const difficulty = req.query.difficulty as string | undefined;
+      const search = req.query.search as string | undefined;
+
+      const result = await pathServices.getAll(
+        categoryId,
+        difficulty,
+        search,
+        page,
+        limit
+      );
       return res.status(200).json({
         success: true,
         data: result.items,

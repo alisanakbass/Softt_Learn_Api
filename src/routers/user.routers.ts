@@ -6,6 +6,10 @@ const router = Router();
 const userController = new UserController();
 
 router.get("/", authenticate, authorize("ADMIN"), userController.getAll);
+router.get("/me", authenticate, userController.getMe);
+router.patch("/update-me", authenticate, userController.updateMe);
+router.patch("/update-password", authenticate, userController.updatePassword);
+
 router.patch(
   "/:id/role",
   authenticate,
